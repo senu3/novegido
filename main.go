@@ -1,99 +1,97 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"log"
 	"os"
-	"regexp"
-	"strings"
+
+	engine "novegido/internal"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-// === 構造体定義 ===
+// Game ----------------------------------------------------------------------
 
-type Page struct {
-	Stage    *Stage    `json:"stage,omitempty"`
-	Dialogue *Dialogue `json:"dialogue,omitempty"`
+var (
+	helloFace text.Face
+)
+
+type Game struct {
+	player   Player
+	fontface text.Face
 }
 
-type Stage struct {
-	BG      string   `json:"bg,omitempty"`
-	Sprites []Sprite `json:"sprites,omitempty"`
-	Effects []string `json:"effects,omitempty"`
+type Player struct {
+	Img  *ebiten.Image
+	X, Y float64
 }
 
-type Sprite struct {
-	ID   string `json:"id"`
-	File string `json:"file"`
-	Pos  string `json:"pos"`
-}
+func init() {
 
-type Dialogue struct {
-	Speaker string `json:"speaker,omitempty"`
-	Text    string `json:"text,omitempty"`
-}
-
-type DictionaryEntry struct {
-	Title  string `json:"title"`
-	Short  string `json:"short"`
-	Detail string `json:"detail"`
-}
-
-type Dictionary map[string]DictionaryEntry
-
-// === データ読み込み関数 ===
-
-func LoadPages(path string) ([]Page, error) {
-	b, err := os.ReadFile(path)
+	f, err := os.Open("asset/fonts/DotGothic16-Regular.ttf")
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-	var pages []Page
-	err = json.Unmarshal(b, &pages)
-	return pages, err
-}
+	defer f.Close()
 
-func LoadDictionary(path string) (Dictionary, error) {
-	b, err := os.ReadFile(path)
+	src, err := text.NewGoTextFaceSource(f)
 	if err != nil {
-		return nil, err
+		return
 	}
-	var dict Dictionary
-	err = json.Unmarshal(b, &dict)
-	return dict, err
+	helloFace = &text.GoTextFace{Source: src, Size: 24}
 }
 
-// === TIPS用語マークアップのパース ===
+func (g *Game) Update() error {
 
-var tipRegex = regexp.MustCompile(`\\[\\[(.+?)\\|(.+?)\\]\\]`)
-
-type TipLink struct {
-	ID   string
-	Text string
-	Pos  int
+	if ebiten.IsKeyPressed(ebiten.KeyRight) {
+		g.player.X += 2
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
+		g.player.X -= 2
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyDown) {
+		g.player.Y += 2
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyUp) {
+		g.player.Y -= 2
+	}
+	return nil
 }
 
-func ParseDialogue(raw string) (cleanText string, tips []TipLink) {
-	cleanText = tipRegex.ReplaceAllStringFunc(raw, func(m string) string {
-		matches := tipRegex.FindStringSubmatch(m)
-		tips = append(tips, TipLink{
-			ID:   matches[1],
-			Text: matches[2],
-			Pos:  strings.Index(raw, m),
-		})
-		return matches[2]
-	})
-	return
+func (g *Game) Draw(screen *ebiten.Image) {
+
+	screen.Fill(color.RGBA{120, 180, 255, 255})
+
+	opts := ebiten.DrawImageOptions{}
+
+	opts.GeoM.Translate(g.player.X, g.player.Y)
+
+	screen.DrawImage(
+		g.player.Img.SubImage(
+			image.Rect(0, 0, 35, 35),
+		).(*ebiten.Image),
+		&opts,
+	)
+
+	opts.GeoM.Reset()
+
+	tOp := &text.DrawOptions{}
+	tOp.GeoM.Translate(10, 30) // 画面左上に配置
+	tOp.ColorScale.ScaleWithColor(color.White)
+	text.Draw(screen, "Hello World", g.fontface, tOp)
 }
 
-// === メイン（動作デモ用） ===
+func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+	return ebiten.WindowSize()
+}
 
-func main() {
+func Load() {
 	// デモ用の読み込み
-	pages, err := LoadPages("asset/scripts/demo.json")
-	if err != nil {
-		panic(err)
-	}
-	dict, err := LoadDictionary("asset/dict/dictionary.json")
+	pages, err := engine.LoadPages("asset/scripts/demo.json")
 	if err != nil {
 		panic(err)
 	}
@@ -112,24 +110,31 @@ func main() {
 
 		// セリフとTIPS用語を表示
 		if page.Dialogue != nil {
-			cleanText, tips := ParseDialogue(page.Dialogue.Text)
+			cleanText := engine.ParseDialogue(page.Dialogue.Text)
 			fmt.Printf("%s「%s」\n", page.Dialogue.Speaker, cleanText)
-			for _, tip := range tips {
-				title, short, ok := dict.GetTip(tip.ID)
-				if ok {
-					fmt.Printf("  [TIPS] %s: %s\n", title, short)
-				} else {
-					fmt.Printf("  [TIPS] 用語 %s は辞書に未登録です。\n", tip.ID)
-				}
-			}
 		}
-		fmt.Println("-----------")
 	}
 }
 
-// === 辞書からTIPS取得 ===
+func main() {
+	ebiten.SetWindowSize(640, 480)
+	ebiten.SetWindowTitle("Hello, World!")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-func (dict Dictionary) GetTip(id string) (title, short string, ok bool) {
-	entry, ok := dict[id]
-	return entry.Title, entry.Short, ok
+	PlayerImg, _, err := ebitenutil.NewImageFromFile("asset/sprite/tc_cat_calico[A].png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	game := Game{
+		player: Player{
+			Img: PlayerImg,
+			X:   100,
+			Y:   100,
+		},
+		fontface: helloFace,
+	}
+	if err := ebiten.RunGame(&game); err != nil {
+		log.Fatal(err)
+	}
 }
