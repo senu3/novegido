@@ -92,7 +92,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-func (g *Game) Layout(w, h int) (int, int) { return 1920, 1080 }
+func (g *Game) Layout(w, h int) (int, int) {
+	return g.stage.screenW, g.stage.screenH
+}
 
 // ------------------ main ----------------------------------------------
 
