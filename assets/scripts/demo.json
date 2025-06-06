@@ -1,0 +1,33 @@
+[
+    {
+        "stage": {
+            "bg": "room.jpg",
+            "sprites": [
+                {
+                    "id": "kuro",
+                    "file": "kuro_joy.png",
+                    "pos": "right"
+                }
+            ]
+        },
+        "dialogue": {
+            "speaker": "クロ",
+            "text": "おはよう！"
+        }
+    },
+    {
+        "stage": {
+            "sprites": [
+                {
+                    "id": "siro",
+                    "file": "siro_neutral.png",
+                    "pos": "left"
+                }
+            ]
+        },
+        "dialogue": {
+            "speaker": "シロ",
+            "text": "おはよう、クロ！"
+        }
+    }
+]

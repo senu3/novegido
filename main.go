@@ -51,39 +51,21 @@ func (d DialogueBox) draw(screen *ebiten.Image, txt string) {
 	text.Draw(screen, txt, uiFace, tOp)
 }
 
-// StageRenderer は背景・立ち絵を描くパーツ（簡易版 ― 実画像は割愛）
-type StageRenderer struct{}
-
-func (StageRenderer) draw(screen *ebiten.Image, st *StageInfo) {
-	if st == nil {
-		return
-	}
-	// 本サンプルでは「色付き矩形」を代用品として表示
-	bg := ebiten.NewImage(screen.Size())
-	bg.Fill(color.RGBA{120, 180, 255, 255})
-	screen.DrawImage(bg, nil)
-
-	// 立ち絵も割愛（実装例: ファイル読み込み→キャッシュ→DrawImage）
-}
-
 // ------------------ Game 本体 -----------------------------------------
 
 type Game struct {
 	pages       []*Page
 	index       int
-	stage       StageRenderer
+	stage       *StageRenderer
 	dialogueBox DialogueBox
 }
 
-// コンストラクタ的な
 func NewGame(pages []*Page) *Game {
-	// 下 1/3 をテキストウィンドウにする
-	w, h := 640, 480
+	const w, h = 640, 480
 	return &Game{
-		pages: pages,
-		dialogueBox: DialogueBox{
-			Rect: image.Rect(0, h*2/3, w, h),
-		},
+		pages:       pages,
+		stage:       NewStageRenderer(w, h),
+		dialogueBox: DialogueBox{Rect: image.Rect(0, h*2/3, w, h)},
 	}
 }
 
@@ -100,16 +82,14 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	// ① 演出
 	g.stage.draw(screen, g.pages[g.index].Stage)
 
-	// ② セリフ
 	if g.pages[g.index].Dialogue != nil {
 		g.dialogueBox.draw(screen, g.pages[g.index].Clean)
 	}
 }
 
-func (g *Game) Layout(w, h int) (int, int) { return 640, 480 }
+func (g *Game) Layout(w, h int) (int, int) { return 1920, 1080 }
 
 // ------------------ main ----------------------------------------------
 
@@ -120,7 +100,7 @@ func main() {
 	}
 
 	g := NewGame(pages)
-	ebiten.SetWindowSize(640, 480)
+	ebiten.SetWindowSize(1920, 1080)
 	ebiten.SetWindowTitle("Novel Game Demo")
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
