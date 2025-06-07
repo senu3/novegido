@@ -33,5 +33,15 @@
             "speaker": "シロ",
             "text": "おはよう、クロ！"
         }
+    },
+    {
+        "dialogue": {
+            "speaker": "クロ",
+            "text": "どうする？"
+        },
+        "choices": [
+            { "text": "シロに話しかける", "page": 1 },
+            { "text": "終わり", "page": 0 }
+        ]
     }
 ]
