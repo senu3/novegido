@@ -55,6 +55,7 @@ func LoadScripts(path string) ([]*Page, error) {
 	return pages, nil
 }
 
+// ParseDialogue should be implemented according to the expected format, such as removing BBCode and tags.
 func ParseDialogue(src string) string {
 
 	out := strings.ReplaceAll(src, "\n", " ")
