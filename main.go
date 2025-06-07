@@ -72,7 +72,7 @@ func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
 		ntOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, name, uiFace, ntOp)
 
-		y += nameHeight + 10
+		y += float64(nameHeight + 10)
 	}
 
 	tOp := &text.DrawOptions{}
