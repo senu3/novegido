@@ -1,6 +1,6 @@
 module novegido
 
-go 1.24.2
+go 1.23
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.8.8
