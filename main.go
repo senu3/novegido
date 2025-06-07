@@ -50,15 +50,33 @@ func (m *mp3Source) Close() error {
 	return m.f.Close()
 }
 
-func (d DialogueBox) draw(screen *ebiten.Image, txt string) {
+func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
 	box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
 	box.Fill(color.RGBA{0, 0, 0, 180})
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(d.Rect.Min.X), float64(d.Rect.Min.Y))
 	screen.DrawImage(box, op)
 
+	y := float64(d.Rect.Min.Y + 20)
+
+	if name != "" {
+		nameHeight := 24
+		nameBox := ebiten.NewImage(d.Rect.Dx()/3, nameHeight)
+		nameBox.Fill(color.RGBA{0, 0, 0, 220})
+		nOp := &ebiten.DrawImageOptions{}
+		nOp.GeoM.Translate(float64(d.Rect.Min.X+20), float64(d.Rect.Min.Y+10))
+		screen.DrawImage(nameBox, nOp)
+
+		ntOp := &text.DrawOptions{}
+		ntOp.GeoM.Translate(float64(d.Rect.Min.X+25), float64(d.Rect.Min.Y+28))
+		ntOp.ColorScale.ScaleWithColor(color.White)
+		text.Draw(screen, name, uiFace, ntOp)
+
+		y += float64(nameHeight + 10)
+	}
+
 	tOp := &text.DrawOptions{}
-	tOp.GeoM.Translate(float64(d.Rect.Min.X+20), float64(d.Rect.Min.Y+20))
+	tOp.GeoM.Translate(float64(d.Rect.Min.X+20), y)
 	tOp.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, txt, uiFace, tOp)
 }
@@ -110,7 +128,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.stage.draw(screen, g.pages[g.index].Stage)
 
 	if g.pages[g.index].Dialogue != nil {
-		g.dialogueBox.draw(screen, g.pages[g.index].Clean)
+		dlg := g.pages[g.index].Dialogue
+		g.dialogueBox.draw(screen, dlg.Speaker, g.pages[g.index].Clean)
 	}
 }
 
