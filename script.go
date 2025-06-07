@@ -7,12 +7,10 @@ import (
 	"strings"
 )
 
-// --- JSON に合わせたデータ構造 -----------------------------------------
-
 type SpriteInfo struct {
 	ID   string `json:"id"`
 	File string `json:"file"`
-	Pos  string `json:"pos"` // "left" / "center" / "right" など
+	Pos  string `json:"pos"`
 }
 
 type StageInfo struct {
@@ -28,10 +26,8 @@ type DialogueInfo struct {
 type Page struct {
 	Stage    *StageInfo    `json:"stage,omitempty"`
 	Dialogue *DialogueInfo `json:"dialogue,omitempty"`
-	Clean    string        `json:"-"` // 描画用にキャッシュ
+	Clean    string        `json:"-"`
 }
-
-// --- ローダ／パーサ ------------------------------------------------------
 
 func LoadScripts(path string) ([]*Page, error) {
 	f, err := os.Open(path)
@@ -53,9 +49,8 @@ func LoadScripts(path string) ([]*Page, error) {
 	return pages, nil
 }
 
-// ParseDialogue は BBCode やタグを除去するなど、想定フォーマットに応じて実装してください
 func ParseDialogue(src string) string {
-	// ここでは単純に\n → 空白、 <>タグを除去するだけのダミー処理
+
 	out := strings.ReplaceAll(src, "\n", " ")
 	out = regexp.MustCompile(`<[^>]+>`).ReplaceAllString(out, "")
 	return strings.TrimSpace(out)

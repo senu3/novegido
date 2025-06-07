@@ -14,8 +14,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-// ---------------- フォントを 1 回だけ生成 -----------------------------
-
 var uiFace text.Face
 
 func init() {
@@ -32,29 +30,23 @@ func init() {
 	uiFace = &text.GoTextFace{Source: src, Size: 22}
 }
 
-// ------------------ 画面パーツごとの構造体 ----------------------------
-
-// DialogueBox は画面下部にセリフを描画するだけの単純なパーツ
 type DialogueBox struct {
 	Rect image.Rectangle
 }
 
 func (d DialogueBox) draw(screen *ebiten.Image, txt string) {
-	// 背景（半透明黒）
+
 	box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
 	box.Fill(color.RGBA{0, 0, 0, 180})
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(d.Rect.Min.X), float64(d.Rect.Min.Y))
 	screen.DrawImage(box, op)
 
-	// テキスト
 	tOp := &text.DrawOptions{}
 	tOp.GeoM.Translate(float64(d.Rect.Min.X+20), float64(d.Rect.Min.Y+20))
 	tOp.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, txt, uiFace, tOp)
 }
-
-// ------------------ Game 本体 -----------------------------------------
 
 type Game struct {
 	pages       []*Page
@@ -73,7 +65,7 @@ func NewGame(pages []*Page) *Game {
 }
 
 func (g *Game) Update() error {
-	// マウス左クリック or スペースキー で次ページへ
+
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
 		inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 
@@ -95,8 +87,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 func (g *Game) Layout(w, h int) (int, int) {
 	return g.stage.screenW, g.stage.screenH
 }
-
-// ------------------ main ----------------------------------------------
 
 func main() {
 	pages, err := LoadScripts("assets/scripts/demo.json")

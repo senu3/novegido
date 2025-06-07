@@ -9,15 +9,13 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
-// StageRenderer は背景と立ち絵を描く & 画像をキャッシュする
 type StageRenderer struct {
-	bgCache     map[string]*ebiten.Image // assets/bg/ 以下
-	spriteCache map[string]*ebiten.Image // assets/sprites/ 以下
-	lastBG      string                   // BG が省略されたページ用
+	bgCache          map[string]*ebiten.Image
+	spriteCache      map[string]*ebiten.Image
+	lastBG           string
 	screenW, screenH int
 }
 
-// ctor
 func NewStageRenderer(w, h int) *StageRenderer {
 	return &StageRenderer{
 		bgCache:     map[string]*ebiten.Image{},
@@ -27,7 +25,6 @@ func NewStageRenderer(w, h int) *StageRenderer {
 	}
 }
 
-// 内部: 画像をロードしてキャッシュ
 func (r *StageRenderer) load(cache map[string]*ebiten.Image, dir, file string) *ebiten.Image {
 	if img, ok := cache[file]; ok {
 		return img
@@ -35,7 +32,7 @@ func (r *StageRenderer) load(cache map[string]*ebiten.Image, dir, file string) *
 	full := filepath.Join("assets", dir, file)
 	img, _, err := ebitenutil.NewImageFromFile(full)
 	if err != nil {
-		// 読めなければ 1×1 マゼンタで代用
+
 		log.Printf("image load error: %v", err)
 		img = ebiten.NewImage(1, 1)
 		img.Fill(color.RGBA{255, 0, 255, 255})
@@ -44,9 +41,8 @@ func (r *StageRenderer) load(cache map[string]*ebiten.Image, dir, file string) *
 	return img
 }
 
-// 描画本体
 func (r *StageRenderer) draw(dst *ebiten.Image, st *StageInfo) {
-	// -------- ① 背景 --------
+
 	if st != nil && st.BG != "" {
 		r.lastBG = st.BG
 	}
@@ -60,14 +56,12 @@ func (r *StageRenderer) draw(dst *ebiten.Image, st *StageInfo) {
 		dst.Fill(color.Black)
 	}
 
-	// -------- ② 立ち絵 --------
 	if st == nil {
 		return
 	}
 	for _, s := range st.Sprites {
 		sp := r.load(r.spriteCache, "sprites", s.File)
 
-		// X 座標を pos で決定
 		var x float64
 		switch s.Pos {
 		case "left":
@@ -79,7 +73,7 @@ func (r *StageRenderer) draw(dst *ebiten.Image, st *StageInfo) {
 		default:
 			x = 0
 		}
-		// 下端をそろえて描く
+
 		y := float64(r.screenH) - float64(sp.Bounds().Dy())
 
 		op := &ebiten.DrawImageOptions{}
