@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"image"
 	"image/color"
 	"io"
@@ -16,6 +17,11 @@ import (
 )
 
 var uiFace text.Face
+
+var (
+	screenWidth  = flag.Int("width", 640, "screen width")
+	screenHeight = flag.Int("height", 480, "screen height")
+)
 
 func init() {
 	f, err := os.Open("assets/fonts/DotGothic16-Regular.ttf")
@@ -67,10 +73,11 @@ type Game struct {
 	sources     map[string]io.Closer
 	bgm         *audio.Player
 	bgmFile     string
+	width       int
+	height      int
 }
 
-func NewGame(pages []*Page) *Game {
-	const w, h = 640, 480
+func NewGame(pages []*Page, w, h int) *Game {
 	g := &Game{
 		pages:       pages,
 		stage:       NewStageRenderer(w, h),
@@ -78,6 +85,8 @@ func NewGame(pages []*Page) *Game {
 		audioCtx:    audio.NewContext(48000),
 		players:     map[string]*audio.Player{},
 		sources:     map[string]io.Closer{},
+		width:       w,
+		height:      h,
 	}
 	if len(pages) > 0 {
 		g.playAudio(pages[0].Audio)
@@ -106,7 +115,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Layout(w, h int) (int, int) {
-	return g.stage.screenW, g.stage.screenH
+	return g.width, g.height
 }
 
 func (g *Game) playAudio(info *AudioInfo) {
@@ -176,13 +185,15 @@ func (g *Game) discardPlayer(file string) {
 }
 
 func main() {
+	flag.Parse()
+
 	pages, err := LoadScripts("assets/scripts/demo.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g := NewGame(pages)
-	ebiten.SetWindowSize(1920, 1080)
+	g := NewGame(pages, *screenWidth, *screenHeight)
+	ebiten.SetWindowSize(*screenWidth, *screenHeight)
 	ebiten.SetWindowTitle("Novel Game Demo")
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
