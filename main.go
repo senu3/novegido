@@ -102,6 +102,8 @@ type Game struct {
 	backlog       []DialogueEntry
 	showBacklog   bool
 	backlogOffset int
+	choosing      bool
+	choiceIndex   int
 }
 
 func NewGame(pages []*Page, w, h int) *Game {
@@ -114,6 +116,7 @@ func NewGame(pages []*Page, w, h int) *Game {
 		sources:     map[string]io.Closer{},
 		width:       w,
 		height:      h,
+		choiceIndex: 0,
 	}
 	if len(pages) > 0 {
 		g.playAudio(pages[0].Audio)
@@ -147,8 +150,47 @@ func (g *Game) Update() error {
 		return nil
 	}
 
+	if g.choosing {
+		choices := g.pages[g.index].Choices
+		if len(choices) == 0 {
+			g.choosing = false
+			return nil
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+			if g.choiceIndex > 0 {
+				g.choiceIndex--
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+			if g.choiceIndex < len(choices)-1 {
+				g.choiceIndex++
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			dest := choices[g.choiceIndex].Page
+			if dest >= 0 && dest < len(g.pages) {
+				g.index = dest
+				g.playAudio(g.pages[g.index].Audio)
+				if g.pages[g.index].Dialogue != nil {
+					g.backlog = append(g.backlog, DialogueEntry{
+						Speaker: g.pages[g.index].Dialogue.Speaker,
+						Text:    g.pages[g.index].Clean,
+					})
+				}
+			}
+			g.choosing = false
+		}
+		return nil
+	}
+
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
 		inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+
+		if len(g.pages[g.index].Choices) > 0 {
+			g.choosing = true
+			g.choiceIndex = 0
+			return nil
+		}
 
 		if g.index < len(g.pages)-1 {
 			g.index++
@@ -176,6 +218,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		dlg := g.pages[g.index].Dialogue
 		g.dialogueBox.draw(screen, dlg.Speaker, g.pages[g.index].Clean)
 	}
+
+	if g.choosing {
+		g.drawChoices(screen)
+	}
 }
 
 func (g *Game) drawBacklog(screen *ebiten.Image) {
@@ -193,6 +239,24 @@ func (g *Game) drawBacklog(screen *ebiten.Image) {
 		tOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), uiFace, tOp)
 		y += 24
+	}
+}
+
+func (g *Game) drawChoices(screen *ebiten.Image) {
+	choices := g.pages[g.index].Choices
+	if len(choices) == 0 {
+		return
+	}
+	startY := float64(g.dialogueBox.Rect.Min.Y + 60)
+	for i, c := range choices {
+		tOp := &text.DrawOptions{}
+		tOp.GeoM.Translate(float64(g.dialogueBox.Rect.Min.X+40), startY+float64(i*24))
+		col := color.White
+		if i == g.choiceIndex {
+			col = color.RGBA{255, 255, 0, 255}
+		}
+		tOp.ColorScale.ScaleWithColor(col)
+		text.Draw(screen, fmt.Sprintf("%d. %s", i+1, c.Text), uiFace, tOp)
 	}
 }
 

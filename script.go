@@ -28,10 +28,16 @@ type AudioInfo struct {
 	Loop bool   `json:"loop"`
 }
 
+type ChoiceInfo struct {
+	Text string `json:"text"`
+	Page int    `json:"page"`
+}
+
 type Page struct {
 	Stage    *StageInfo    `json:"stage,omitempty"`
 	Dialogue *DialogueInfo `json:"dialogue,omitempty"`
 	Audio    *AudioInfo    `json:"audio,omitempty"`
+	Choices  []ChoiceInfo  `json:"choices,omitempty"`
 	Clean    string        `json:"-"`
 }
 

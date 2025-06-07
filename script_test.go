@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestParseDialogue(t *testing.T) {
 	tests := []struct {
@@ -20,5 +23,33 @@ func TestParseDialogue(t *testing.T) {
 				t.Errorf("ParseDialogue(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestLoadScriptsChoices(t *testing.T) {
+	tmp, err := os.CreateTemp("", "script*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmp.Name())
+	data := `[{"dialogue":{"speaker":"A","text":"hi"},"choices":[{"text":"go","page":0}]}]`
+	if _, err := tmp.WriteString(data); err != nil {
+		t.Fatal(err)
+	}
+	tmp.Close()
+
+	pages, err := LoadScripts(tmp.Name())
+	if err != nil {
+		t.Fatalf("LoadScripts error: %v", err)
+	}
+	if len(pages) != 1 {
+		t.Fatalf("expected 1 page, got %d", len(pages))
+	}
+	if len(pages[0].Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(pages[0].Choices))
+	}
+	c := pages[0].Choices[0]
+	if c.Text != "go" || c.Page != 0 {
+		t.Fatalf("unexpected choice parsed: %+v", c)
 	}
 }
