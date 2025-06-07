@@ -13,6 +13,10 @@
         "dialogue": {
             "speaker": "クロ",
             "text": "おはよう！"
+        },
+        "audio": {
+            "file": "audio/audio.mp3",
+            "loop": true
         }
     },
     {

@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 	"image/color"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -34,8 +35,16 @@ type DialogueBox struct {
 	Rect image.Rectangle
 }
 
-func (d DialogueBox) draw(screen *ebiten.Image, txt string) {
+type mp3Source struct {
+	*mp3.Stream
+	f *os.File
+}
 
+func (m *mp3Source) Close() error {
+	return m.f.Close()
+}
+
+func (d DialogueBox) draw(screen *ebiten.Image, txt string) {
 	box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
 	box.Fill(color.RGBA{0, 0, 0, 180})
 	op := &ebiten.DrawImageOptions{}
@@ -55,7 +64,9 @@ type Game struct {
 	dialogueBox DialogueBox
 	audioCtx    *audio.Context
 	players     map[string]*audio.Player
+	sources     map[string]io.Closer
 	bgm         *audio.Player
+	bgmFile     string
 }
 
 func NewGame(pages []*Page) *Game {
@@ -66,6 +77,7 @@ func NewGame(pages []*Page) *Game {
 		dialogueBox: DialogueBox{Rect: image.Rect(0, h*2/3, w, h)},
 		audioCtx:    audio.NewContext(48000),
 		players:     map[string]*audio.Player{},
+		sources:     map[string]io.Closer{},
 	}
 	if len(pages) > 0 {
 		g.playAudio(pages[0].Audio)
@@ -74,7 +86,6 @@ func NewGame(pages []*Page) *Game {
 }
 
 func (g *Game) Update() error {
-
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
 		inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 
@@ -108,6 +119,7 @@ func (g *Game) playAudio(info *AudioInfo) {
 		if info.Loop {
 			if g.bgm != nil && g.bgm != p {
 				g.bgm.Pause()
+				g.bgmFile = info.File
 			}
 			g.bgm = p
 		}
@@ -123,25 +135,44 @@ func (g *Game) playAudio(info *AudioInfo) {
 	stream, err := mp3.DecodeWithoutResampling(f)
 	if err != nil {
 		log.Printf("decode error: %v", err)
+		_ = f.Close()
 		return
 	}
-	var src audio.ReadSeekCloser = stream
+	src := &mp3Source{Stream: stream, f: f}
+	var reader io.ReadSeeker = src
 	if info.Loop {
-		src = audio.NewInfiniteLoop(stream, stream.Length())
+		reader = audio.NewInfiniteLoop(reader, stream.Length())
 	}
-	p, err := g.audioCtx.NewPlayer(src)
+	p, err := g.audioCtx.NewPlayer(reader)
 	if err != nil {
 		log.Printf("player error: %v", err)
+		_ = src.Close()
 		return
 	}
 	g.players[info.File] = p
+	g.sources[info.File] = src
 	if info.Loop {
 		if g.bgm != nil && g.bgm != p {
-			g.bgm.Pause()
+			g.discardPlayer(g.bgmFile)
 		}
 		g.bgm = p
+		g.bgmFile = info.File
 	}
 	p.Play()
+}
+
+func (g *Game) discardPlayer(file string) {
+	if file == "" {
+		return
+	}
+	if p, ok := g.players[file]; ok {
+		p.Close()
+		delete(g.players, file)
+	}
+	if s, ok := g.sources[file]; ok {
+		s.Close()
+		delete(g.sources, file)
+	}
 }
 
 func main() {
