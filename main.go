@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -39,6 +40,11 @@ func init() {
 
 type DialogueBox struct {
 	Rect image.Rectangle
+}
+
+type DialogueEntry struct {
+	Speaker string
+	Text    string
 }
 
 type mp3Source struct {
@@ -82,17 +88,20 @@ func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
 }
 
 type Game struct {
-	pages       []*Page
-	index       int
-	stage       *StageRenderer
-	dialogueBox DialogueBox
-	audioCtx    *audio.Context
-	players     map[string]*audio.Player
-	sources     map[string]io.Closer
-	bgm         *audio.Player
-	bgmFile     string
-	width       int
-	height      int
+	pages         []*Page
+	index         int
+	stage         *StageRenderer
+	dialogueBox   DialogueBox
+	audioCtx      *audio.Context
+	players       map[string]*audio.Player
+	sources       map[string]io.Closer
+	bgm           *audio.Player
+	bgmFile       string
+	width         int
+	height        int
+	backlog       []DialogueEntry
+	showBacklog   bool
+	backlogOffset int
 }
 
 func NewGame(pages []*Page, w, h int) *Game {
@@ -108,17 +117,48 @@ func NewGame(pages []*Page, w, h int) *Game {
 	}
 	if len(pages) > 0 {
 		g.playAudio(pages[0].Audio)
+		if pages[0].Dialogue != nil {
+			g.backlog = append(g.backlog, DialogueEntry{
+				Speaker: pages[0].Dialogue.Speaker,
+				Text:    pages[0].Clean,
+			})
+		}
 	}
 	return g
 }
 
 func (g *Game) Update() error {
+	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+		g.showBacklog = !g.showBacklog
+		return nil
+	}
+
+	if g.showBacklog {
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+			if g.backlogOffset < len(g.backlog)-1 {
+				g.backlogOffset++
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+			if g.backlogOffset > 0 {
+				g.backlogOffset--
+			}
+		}
+		return nil
+	}
+
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
 		inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 
 		if g.index < len(g.pages)-1 {
 			g.index++
 			g.playAudio(g.pages[g.index].Audio)
+			if g.pages[g.index].Dialogue != nil {
+				g.backlog = append(g.backlog, DialogueEntry{
+					Speaker: g.pages[g.index].Dialogue.Speaker,
+					Text:    g.pages[g.index].Clean,
+				})
+			}
 		}
 	}
 	return nil
@@ -127,9 +167,32 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.stage.draw(screen, g.pages[g.index].Stage)
 
+	if g.showBacklog {
+		g.drawBacklog(screen)
+		return
+	}
+
 	if g.pages[g.index].Dialogue != nil {
 		dlg := g.pages[g.index].Dialogue
 		g.dialogueBox.draw(screen, dlg.Speaker, g.pages[g.index].Clean)
+	}
+}
+
+func (g *Game) drawBacklog(screen *ebiten.Image) {
+	box := ebiten.NewImage(g.width, g.height)
+	box.Fill(color.RGBA{0, 0, 0, 220})
+	screen.DrawImage(box, nil)
+
+	lines := g.height / 24
+	start := len(g.backlog) - 1 - g.backlogOffset
+	y := float64(20)
+	for i := 0; i < lines && start-i >= 0; i++ {
+		e := g.backlog[start-i]
+		tOp := &text.DrawOptions{}
+		tOp.GeoM.Translate(20, y)
+		tOp.ColorScale.ScaleWithColor(color.White)
+		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), uiFace, tOp)
+		y += 24
 	}
 }
 
