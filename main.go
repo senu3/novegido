@@ -5,11 +5,11 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
@@ -53,15 +53,24 @@ type Game struct {
 	index       int
 	stage       *StageRenderer
 	dialogueBox DialogueBox
+	audioCtx    *audio.Context
+	players     map[string]*audio.Player
+	bgm         *audio.Player
 }
 
 func NewGame(pages []*Page) *Game {
 	const w, h = 640, 480
-	return &Game{
+	g := &Game{
 		pages:       pages,
 		stage:       NewStageRenderer(w, h),
 		dialogueBox: DialogueBox{Rect: image.Rect(0, h*2/3, w, h)},
+		audioCtx:    audio.NewContext(48000),
+		players:     map[string]*audio.Player{},
 	}
+	if len(pages) > 0 {
+		g.playAudio(pages[0].Audio)
+	}
+	return g
 }
 
 func (g *Game) Update() error {
@@ -71,6 +80,7 @@ func (g *Game) Update() error {
 
 		if g.index < len(g.pages)-1 {
 			g.index++
+			g.playAudio(g.pages[g.index].Audio)
 		}
 	}
 	return nil
@@ -86,6 +96,52 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Layout(w, h int) (int, int) {
 	return g.stage.screenW, g.stage.screenH
+}
+
+func (g *Game) playAudio(info *AudioInfo) {
+	if info == nil || info.File == "" {
+		return
+	}
+
+	if p, ok := g.players[info.File]; ok {
+		_ = p.Rewind()
+		if info.Loop {
+			if g.bgm != nil && g.bgm != p {
+				g.bgm.Pause()
+			}
+			g.bgm = p
+		}
+		p.Play()
+		return
+	}
+
+	f, err := os.Open(filepath.Join("assets", info.File))
+	if err != nil {
+		log.Printf("audio load error: %v", err)
+		return
+	}
+	stream, err := mp3.DecodeWithoutResampling(f)
+	if err != nil {
+		log.Printf("decode error: %v", err)
+		return
+	}
+	var src audio.ReadSeekCloser = stream
+	if info.Loop {
+		src = audio.NewInfiniteLoop(stream, stream.Length())
+	}
+	p, err := g.audioCtx.NewPlayer(src)
+	if err != nil {
+		log.Printf("player error: %v", err)
+		return
+	}
+	g.players[info.File] = p
+	if info.Loop {
+		if g.bgm != nil && g.bgm != p {
+			g.bgm.Pause()
+		}
+		g.bgm = p
+	}
+	p.Play()
 }
 
 func main() {

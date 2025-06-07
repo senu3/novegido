@@ -23,9 +23,15 @@ type DialogueInfo struct {
 	Text    string `json:"text"`
 }
 
+type AudioInfo struct {
+	File string `json:"file"`
+	Loop bool   `json:"loop"`
+}
+
 type Page struct {
 	Stage    *StageInfo    `json:"stage,omitempty"`
 	Dialogue *DialogueInfo `json:"dialogue,omitempty"`
+	Audio    *AudioInfo    `json:"audio,omitempty"`
 	Clean    string        `json:"-"`
 }
 
