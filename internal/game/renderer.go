@@ -1,7 +1,7 @@
 //go:build !headless
 // +build !headless
 
-package main
+package game
 
 import (
 	"image/color"
@@ -10,8 +10,11 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+
+	"novegido/internal/script"
 )
 
+// StageRenderer handles rendering of backgrounds and sprites with simple fades.
 type StageRenderer struct {
 	bgCache     map[string]*ebiten.Image
 	spriteCache map[string]*ebiten.Image
@@ -21,8 +24,8 @@ type StageRenderer struct {
 	bgFadeFrames  int
 	bgFadeCounter int
 
-	currSprites       []SpriteInfo
-	prevSprites       []SpriteInfo
+	currSprites       []script.SpriteInfo
+	prevSprites       []script.SpriteInfo
 	spriteFadeFrames  int
 	spriteFadeCounter int
 
@@ -31,6 +34,7 @@ type StageRenderer struct {
 	screenW, screenH int
 }
 
+// NewStageRenderer creates a renderer for a stage of the given screen size.
 func NewStageRenderer(w, h int) *StageRenderer {
 	black := ebiten.NewImage(w, h)
 	black.Fill(color.Black)
@@ -50,7 +54,6 @@ func (r *StageRenderer) load(cache map[string]*ebiten.Image, dir, file string) *
 	full := filepath.Join("assets", dir, file)
 	img, _, err := ebitenutil.NewImageFromFile(full)
 	if err != nil {
-
 		log.Printf("image load error: %v", err)
 		img = ebiten.NewImage(1, 1)
 		img.Fill(color.RGBA{255, 0, 255, 255})
@@ -59,8 +62,7 @@ func (r *StageRenderer) load(cache map[string]*ebiten.Image, dir, file string) *
 	return img
 }
 
-func (r *StageRenderer) draw(dst *ebiten.Image, st *StageInfo) {
-
+func (r *StageRenderer) draw(dst *ebiten.Image, st *script.StageInfo) {
 	if st != nil {
 		if st.BG != "" && st.BG != r.currBG {
 			if st.BGFade > 0 {
@@ -78,12 +80,12 @@ func (r *StageRenderer) draw(dst *ebiten.Image, st *StageInfo) {
 		if !spritesEqual(st.Sprites, r.currSprites) {
 			if st.SpriteFade > 0 {
 				r.prevSprites = r.currSprites
-				r.currSprites = append([]SpriteInfo(nil), st.Sprites...)
+				r.currSprites = append([]script.SpriteInfo(nil), st.Sprites...)
 				r.spriteFadeFrames = st.SpriteFade
 				r.spriteFadeCounter = 0
 			} else {
 				r.prevSprites = nil
-				r.currSprites = append([]SpriteInfo(nil), st.Sprites...)
+				r.currSprites = append([]script.SpriteInfo(nil), st.Sprites...)
 				r.spriteFadeFrames = 0
 			}
 		}
@@ -155,7 +157,7 @@ func (r *StageRenderer) drawSprites(dst *ebiten.Image) {
 	}
 }
 
-func (r *StageRenderer) drawSpriteSet(dst *ebiten.Image, sprites []SpriteInfo, alpha float64) {
+func (r *StageRenderer) drawSpriteSet(dst *ebiten.Image, sprites []script.SpriteInfo, alpha float64) {
 	if alpha <= 0 {
 		return
 	}
@@ -182,7 +184,7 @@ func (r *StageRenderer) drawSpriteSet(dst *ebiten.Image, sprites []SpriteInfo, a
 	}
 }
 
-func spritesEqual(a, b []SpriteInfo) bool {
+func spritesEqual(a, b []script.SpriteInfo) bool {
 	if len(a) != len(b) {
 		return false
 	}
