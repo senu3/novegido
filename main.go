@@ -106,6 +106,28 @@ type Game struct {
 	choiceIndex   int
 }
 
+func (g *Game) nextPage() {
+	if g.index >= len(g.pages)-1 {
+		return
+	}
+	g.index++
+	g.playAudio(g.pages[g.index].Audio)
+	if g.pages[g.index].Dialogue != nil {
+		g.backlog = append(g.backlog, DialogueEntry{
+			Speaker: g.pages[g.index].Dialogue.Speaker,
+			Text:    g.pages[g.index].Clean,
+		})
+	}
+}
+
+func (g *Game) prevPage() {
+	if g.index <= 0 {
+		return
+	}
+	g.index--
+	g.playAudio(g.pages[g.index].Audio)
+}
+
 func NewGame(pages []*Page, w, h int) *Game {
 	g := &Game{
 		pages:       pages,
@@ -156,6 +178,11 @@ func (g *Game) Update() error {
 			g.choosing = false
 			return nil
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+			g.prevPage()
+			g.choosing = false
+			return nil
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			if g.choiceIndex > 0 {
 				g.choiceIndex--
@@ -183,8 +210,26 @@ func (g *Game) Update() error {
 		return nil
 	}
 
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
-		inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+		g.prevPage()
+	}
+
+	trigger := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
+		inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
+		inpututil.IsKeyJustPressed(ebiten.KeyEnter)
+
+	if len(inpututil.AppendJustPressedTouchIDs(nil)) > 0 {
+		trigger = true
+	}
+
+	for _, id := range ebiten.AppendGamepadIDs(nil) {
+		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom) {
+			trigger = true
+			break
+		}
+	}
+
+	if trigger {
 
 		if len(g.pages[g.index].Choices) > 0 {
 			g.choosing = true
@@ -192,16 +237,7 @@ func (g *Game) Update() error {
 			return nil
 		}
 
-		if g.index < len(g.pages)-1 {
-			g.index++
-			g.playAudio(g.pages[g.index].Audio)
-			if g.pages[g.index].Dialogue != nil {
-				g.backlog = append(g.backlog, DialogueEntry{
-					Speaker: g.pages[g.index].Dialogue.Speaker,
-					Text:    g.pages[g.index].Clean,
-				})
-			}
-		}
+		g.nextPage()
 	}
 	return nil
 }
@@ -251,7 +287,7 @@ func (g *Game) drawChoices(screen *ebiten.Image) {
 	for i, c := range choices {
 		tOp := &text.DrawOptions{}
 		tOp.GeoM.Translate(float64(g.dialogueBox.Rect.Min.X+40), startY+float64(i*24))
-		col := color.White
+		col := color.RGBA{255, 255, 255, 255}
 		if i == g.choiceIndex {
 			col = color.RGBA{255, 255, 0, 255}
 		}
