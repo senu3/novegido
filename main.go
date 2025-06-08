@@ -90,11 +90,11 @@ func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
 		}
 
 		ntOp := &text.DrawOptions{}
-		ntOp.GeoM.Translate(float64(nameRect.Min.X+5), float64(nameRect.Min.Y+18))
+		ntOp.GeoM.Translate(float64(nameRect.Min.X+10), float64(nameRect.Max.Y-6))
 		ntOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, name, uiFace, ntOp)
 
-		y += float64(nameHeight + 10)
+		y += float64(nameRect.Dy() + 10)
 	}
 
 	tOp := &text.DrawOptions{}
