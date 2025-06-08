@@ -1,10 +1,9 @@
 //go:build !headless
 // +build !headless
 
-package main
+package game
 
 import (
-	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,35 +17,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+
+	"novegido/internal/script"
+	"novegido/internal/ui"
 )
 
-var uiFace text.Face
-
-var (
-	screenWidth  = flag.Int("width", 640, "screen width")
-	screenHeight = flag.Int("height", 480, "screen height")
-)
-
-func init() {
-	f, err := os.Open("assets/fonts/DotGothic16-Regular.ttf")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	src, err := text.NewGoTextFaceSource(f)
-	if err != nil {
-		log.Fatal(err)
-	}
-	uiFace = &text.GoTextFace{Source: src, Size: 22}
-}
-
-type DialogueBox struct {
-	Rect      image.Rectangle
-	Frame     *NineSlice
-	NameFrame *NineSlice
-}
-
+// DialogueEntry represents a line shown in the backlog.
 type DialogueEntry struct {
 	Speaker string
 	Text    string
@@ -57,60 +33,14 @@ type mp3Source struct {
 	f *os.File
 }
 
-func (m *mp3Source) Close() error {
-	return m.f.Close()
-}
+func (m *mp3Source) Close() error { return m.f.Close() }
 
-func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
-	if d.Frame != nil {
-		d.Frame.Draw(screen, d.Rect)
-	} else {
-		box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
-		box.Fill(color.RGBA{0, 0, 0, 180})
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(d.Rect.Min.X), float64(d.Rect.Min.Y))
-		screen.DrawImage(box, op)
-	}
-
-	y := float64(d.Rect.Min.Y + 20)
-
-	if name != "" {
-		nameHeight := 24
-		nameRect := image.Rect(
-			d.Rect.Min.X+20,
-			d.Rect.Min.Y+10,
-			d.Rect.Min.X+20+d.Rect.Dx()/3,
-			d.Rect.Min.Y+10+nameHeight,
-		)
-		if d.NameFrame != nil {
-			d.NameFrame.Draw(screen, nameRect)
-		} else {
-			nameBox := ebiten.NewImage(nameRect.Dx(), nameRect.Dy())
-			nameBox.Fill(color.RGBA{0, 0, 0, 220})
-			nOp := &ebiten.DrawImageOptions{}
-			nOp.GeoM.Translate(float64(nameRect.Min.X), float64(nameRect.Min.Y))
-			screen.DrawImage(nameBox, nOp)
-		}
-
-		ntOp := &text.DrawOptions{}
-		ntOp.GeoM.Translate(float64(nameRect.Min.X+10), float64(nameRect.Max.Y-6))
-		ntOp.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, name, uiFace, ntOp)
-
-		y += float64(nameRect.Dy() + 10)
-	}
-
-	tOp := &text.DrawOptions{}
-	tOp.GeoM.Translate(float64(d.Rect.Min.X+20), y)
-	tOp.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, txt, uiFace, tOp)
-}
-
+// Game holds all runtime state for the visual novel.
 type Game struct {
-	pages         []*Page
+	pages         []*script.Page
 	index         int
 	stage         *StageRenderer
-	dialogueBox   DialogueBox
+	dialogueBox   ui.DialogueBox
 	audioCtx      *audio.Context
 	players       map[string]*audio.Player
 	sources       map[string]io.Closer
@@ -123,6 +53,39 @@ type Game struct {
 	backlogOffset int
 	choosing      bool
 	choiceIndex   int
+}
+
+// NewGame creates a Game instance with the provided pages and screen size.
+func NewGame(pages []*script.Page, w, h int) *Game {
+	frame, err := ui.LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
+	if err != nil {
+		log.Printf("nine-slice load error: %v", err)
+	}
+	g := &Game{
+		pages: pages,
+		stage: NewStageRenderer(w, h),
+		dialogueBox: ui.DialogueBox{
+			Rect:      image.Rect(0, h*2/3, w, h),
+			Frame:     frame,
+			NameFrame: frame,
+		},
+		audioCtx:    audio.NewContext(48000),
+		players:     map[string]*audio.Player{},
+		sources:     map[string]io.Closer{},
+		width:       w,
+		height:      h,
+		choiceIndex: 0,
+	}
+	if len(pages) > 0 {
+		g.playAudio(pages[0].Audio)
+		if pages[0].Dialogue != nil {
+			g.backlog = append(g.backlog, DialogueEntry{
+				Speaker: pages[0].Dialogue.Speaker,
+				Text:    pages[0].Clean,
+			})
+		}
+	}
+	return g
 }
 
 func (g *Game) nextPage() {
@@ -147,38 +110,7 @@ func (g *Game) prevPage() {
 	g.playAudio(g.pages[g.index].Audio)
 }
 
-func NewGame(pages []*Page, w, h int) *Game {
-	frame, err := LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
-	if err != nil {
-		log.Printf("nine-slice load error: %v", err)
-	}
-	g := &Game{
-		pages: pages,
-		stage: NewStageRenderer(w, h),
-		dialogueBox: DialogueBox{
-			Rect:      image.Rect(0, h*2/3, w, h),
-			Frame:     frame,
-			NameFrame: frame,
-		},
-		audioCtx:    audio.NewContext(48000),
-		players:     map[string]*audio.Player{},
-		sources:     map[string]io.Closer{},
-		width:       w,
-		height:      h,
-		choiceIndex: 0,
-	}
-	if len(pages) > 0 {
-		g.playAudio(pages[0].Audio)
-		if pages[0].Dialogue != nil {
-			g.backlog = append(g.backlog, DialogueEntry{
-				Speaker: pages[0].Dialogue.Speaker,
-				Text:    pages[0].Clean,
-			})
-		}
-	}
-	return g
-}
-
+// Update advances the game state according to user input.
 func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 		g.showBacklog = !g.showBacklog
@@ -257,18 +189,17 @@ func (g *Game) Update() error {
 	}
 
 	if trigger {
-
 		if len(g.pages[g.index].Choices) > 0 {
 			g.choosing = true
 			g.choiceIndex = 0
 			return nil
 		}
-
 		g.nextPage()
 	}
 	return nil
 }
 
+// Draw renders the current frame.
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.stage.draw(screen, g.pages[g.index].Stage)
 
@@ -279,7 +210,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.pages[g.index].Dialogue != nil {
 		dlg := g.pages[g.index].Dialogue
-		g.dialogueBox.draw(screen, dlg.Speaker, g.pages[g.index].Clean)
+		g.dialogueBox.Draw(screen, dlg.Speaker, g.pages[g.index].Clean)
 	}
 
 	if g.choosing {
@@ -300,7 +231,7 @@ func (g *Game) drawBacklog(screen *ebiten.Image) {
 		tOp := &text.DrawOptions{}
 		tOp.GeoM.Translate(20, y)
 		tOp.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), uiFace, tOp)
+		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), ui.Face, tOp)
 		y += 24
 	}
 }
@@ -319,15 +250,14 @@ func (g *Game) drawChoices(screen *ebiten.Image) {
 			col = color.RGBA{255, 255, 0, 255}
 		}
 		tOp.ColorScale.ScaleWithColor(col)
-		text.Draw(screen, fmt.Sprintf("%d. %s", i+1, c.Text), uiFace, tOp)
+		text.Draw(screen, fmt.Sprintf("%d. %s", i+1, c.Text), ui.Face, tOp)
 	}
 }
 
-func (g *Game) Layout(w, h int) (int, int) {
-	return g.width, g.height
-}
+// Layout reports the game's screen dimensions.
+func (g *Game) Layout(w, h int) (int, int) { return g.width, g.height }
 
-func (g *Game) playAudio(info *AudioInfo) {
+func (g *Game) playAudio(info *script.AudioInfo) {
 	if info == nil || info.File == "" {
 		return
 	}
@@ -390,21 +320,5 @@ func (g *Game) discardPlayer(file string) {
 	if s, ok := g.sources[file]; ok {
 		s.Close()
 		delete(g.sources, file)
-	}
-}
-
-func main() {
-	flag.Parse()
-
-	pages, err := LoadScripts("assets/scripts/demo.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	g := NewGame(pages, *screenWidth, *screenHeight)
-	ebiten.SetWindowSize(*screenWidth, *screenHeight)
-	ebiten.SetWindowTitle("Novel Game Demo")
-	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
 	}
 }

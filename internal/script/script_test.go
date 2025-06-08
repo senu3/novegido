@@ -1,7 +1,7 @@
 //go:build headless
 // +build headless
 
-package main
+package script
 
 import (
 	"os"

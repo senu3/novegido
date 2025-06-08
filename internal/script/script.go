@@ -1,4 +1,4 @@
-package main
+package script
 
 import (
 	"encoding/json"
@@ -7,12 +7,14 @@ import (
 	"strings"
 )
 
+// SpriteInfo describes a character sprite on screen.
 type SpriteInfo struct {
 	ID   string `json:"id"`
 	File string `json:"file"`
 	Pos  string `json:"pos"`
 }
 
+// StageInfo describes background and sprite placement along with transitions.
 type StageInfo struct {
 	BG         string       `json:"bg"`
 	Sprites    []SpriteInfo `json:"sprites"`
@@ -20,21 +22,25 @@ type StageInfo struct {
 	SpriteFade int          `json:"spriteFade,omitempty"`
 }
 
+// DialogueInfo holds spoken text and speaker name.
 type DialogueInfo struct {
 	Speaker string `json:"speaker"`
 	Text    string `json:"text"`
 }
 
+// AudioInfo describes a sound file that should be played.
 type AudioInfo struct {
 	File string `json:"file"`
 	Loop bool   `json:"loop"`
 }
 
+// ChoiceInfo represents a selectable option leading to another page.
 type ChoiceInfo struct {
 	Text string `json:"text"`
 	Page int    `json:"page"`
 }
 
+// Page is a single entry of a script.
 type Page struct {
 	Stage    *StageInfo    `json:"stage,omitempty"`
 	Dialogue *DialogueInfo `json:"dialogue,omitempty"`
@@ -43,6 +49,7 @@ type Page struct {
 	Clean    string        `json:"-"`
 }
 
+// LoadScripts reads a JSON script file and returns parsed pages.
 func LoadScripts(path string) ([]*Page, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -63,9 +70,8 @@ func LoadScripts(path string) ([]*Page, error) {
 	return pages, nil
 }
 
-// ParseDialogue should be implemented according to the expected format, such as removing BBCode and tags.
+// ParseDialogue removes any markup such as HTML tags and normalises whitespace.
 func ParseDialogue(src string) string {
-
 	out := strings.ReplaceAll(src, "\n", " ")
 	out = regexp.MustCompile(`<[^>]+>`).ReplaceAllString(out, "")
 	return strings.TrimSpace(out)
