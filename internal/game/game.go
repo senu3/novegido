@@ -55,6 +55,16 @@ type Game struct {
 	choiceIndex   int
 }
 
+func (g *Game) addToBacklog(d *script.DialogueInfo) {
+	if d == nil {
+		return
+	}
+	g.backlog = append(g.backlog, DialogueEntry{
+		Speaker: d.Speaker,
+		Text:    script.ParseDialogue(d.Text),
+	})
+}
+
 // NewGame creates a Game instance with the provided pages and screen size.
 func NewGame(pages []*script.Page, w, h int) *Game {
 	frame, err := ui.LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
@@ -78,12 +88,7 @@ func NewGame(pages []*script.Page, w, h int) *Game {
 	}
 	if len(pages) > 0 {
 		g.playAudio(pages[0].Audio)
-		if pages[0].Dialogue != nil {
-			g.backlog = append(g.backlog, DialogueEntry{
-				Speaker: pages[0].Dialogue.Speaker,
-				Text:    pages[0].Clean,
-			})
-		}
+		g.addToBacklog(pages[0].Dialogue)
 	}
 	return g
 }
@@ -94,12 +99,7 @@ func (g *Game) nextPage() {
 	}
 	g.index++
 	g.playAudio(g.pages[g.index].Audio)
-	if g.pages[g.index].Dialogue != nil {
-		g.backlog = append(g.backlog, DialogueEntry{
-			Speaker: g.pages[g.index].Dialogue.Speaker,
-			Text:    g.pages[g.index].Clean,
-		})
-	}
+	g.addToBacklog(g.pages[g.index].Dialogue)
 }
 
 func (g *Game) prevPage() {
@@ -162,12 +162,7 @@ func (g *Game) updateChoiceSelection() bool {
 		if dest >= 0 && dest < len(g.pages) {
 			g.index = dest
 			g.playAudio(g.pages[g.index].Audio)
-			if g.pages[g.index].Dialogue != nil {
-				g.backlog = append(g.backlog, DialogueEntry{
-					Speaker: g.pages[g.index].Dialogue.Speaker,
-					Text:    g.pages[g.index].Clean,
-				})
-			}
+			g.addToBacklog(g.pages[g.index].Dialogue)
 		}
 		g.choosing = false
 	}
