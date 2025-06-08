@@ -39,7 +39,9 @@ func init() {
 }
 
 type DialogueBox struct {
-	Rect image.Rectangle
+	Rect      image.Rectangle
+	Frame     *NineSlice
+	NameFrame *NineSlice
 }
 
 type DialogueEntry struct {
@@ -57,24 +59,38 @@ func (m *mp3Source) Close() error {
 }
 
 func (d DialogueBox) draw(screen *ebiten.Image, name, txt string) {
-	box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
-	box.Fill(color.RGBA{0, 0, 0, 180})
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(d.Rect.Min.X), float64(d.Rect.Min.Y))
-	screen.DrawImage(box, op)
+	if d.Frame != nil {
+		d.Frame.Draw(screen, d.Rect)
+	} else {
+		box := ebiten.NewImage(d.Rect.Dx(), d.Rect.Dy())
+		box.Fill(color.RGBA{0, 0, 0, 180})
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(d.Rect.Min.X), float64(d.Rect.Min.Y))
+		screen.DrawImage(box, op)
+	}
 
 	y := float64(d.Rect.Min.Y + 20)
 
 	if name != "" {
 		nameHeight := 24
-		nameBox := ebiten.NewImage(d.Rect.Dx()/3, nameHeight)
-		nameBox.Fill(color.RGBA{0, 0, 0, 220})
-		nOp := &ebiten.DrawImageOptions{}
-		nOp.GeoM.Translate(float64(d.Rect.Min.X+20), float64(d.Rect.Min.Y+10))
-		screen.DrawImage(nameBox, nOp)
+		nameRect := image.Rect(
+			d.Rect.Min.X+20,
+			d.Rect.Min.Y+10,
+			d.Rect.Min.X+20+d.Rect.Dx()/3,
+			d.Rect.Min.Y+10+nameHeight,
+		)
+		if d.NameFrame != nil {
+			d.NameFrame.Draw(screen, nameRect)
+		} else {
+			nameBox := ebiten.NewImage(nameRect.Dx(), nameRect.Dy())
+			nameBox.Fill(color.RGBA{0, 0, 0, 220})
+			nOp := &ebiten.DrawImageOptions{}
+			nOp.GeoM.Translate(float64(nameRect.Min.X), float64(nameRect.Min.Y))
+			screen.DrawImage(nameBox, nOp)
+		}
 
 		ntOp := &text.DrawOptions{}
-		ntOp.GeoM.Translate(float64(d.Rect.Min.X+25), float64(d.Rect.Min.Y+28))
+		ntOp.GeoM.Translate(float64(nameRect.Min.X+5), float64(nameRect.Min.Y+18))
 		ntOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, name, uiFace, ntOp)
 
@@ -129,10 +145,18 @@ func (g *Game) prevPage() {
 }
 
 func NewGame(pages []*Page, w, h int) *Game {
+	frame, err := LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
+	if err != nil {
+		log.Printf("nine-slice load error: %v", err)
+	}
 	g := &Game{
-		pages:       pages,
-		stage:       NewStageRenderer(w, h),
-		dialogueBox: DialogueBox{Rect: image.Rect(0, h*2/3, w, h)},
+		pages: pages,
+		stage: NewStageRenderer(w, h),
+		dialogueBox: DialogueBox{
+			Rect:      image.Rect(0, h*2/3, w, h),
+			Frame:     frame,
+			NameFrame: frame,
+		},
 		audioCtx:    audio.NewContext(48000),
 		players:     map[string]*audio.Player{},
 		sources:     map[string]io.Closer{},
