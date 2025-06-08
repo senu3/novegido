@@ -110,11 +110,10 @@ func (g *Game) prevPage() {
 	g.playAudio(g.pages[g.index].Audio)
 }
 
-// Update advances the game state according to user input.
-func (g *Game) Update() error {
+func (g *Game) updateBacklog() bool {
 	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 		g.showBacklog = !g.showBacklog
-		return nil
+		return true
 	}
 
 	if g.showBacklog {
@@ -128,47 +127,54 @@ func (g *Game) Update() error {
 				g.backlogOffset--
 			}
 		}
-		return nil
+		return true
+	}
+	return false
+}
+
+func (g *Game) updateChoiceSelection() bool {
+	if !g.choosing {
+		return false
 	}
 
-	if g.choosing {
-		choices := g.pages[g.index].Choices
-		if len(choices) == 0 {
-			g.choosing = false
-			return nil
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
-			g.prevPage()
-			g.choosing = false
-			return nil
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
-			if g.choiceIndex > 0 {
-				g.choiceIndex--
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
-			if g.choiceIndex < len(choices)-1 {
-				g.choiceIndex++
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			dest := choices[g.choiceIndex].Page
-			if dest >= 0 && dest < len(g.pages) {
-				g.index = dest
-				g.playAudio(g.pages[g.index].Audio)
-				if g.pages[g.index].Dialogue != nil {
-					g.backlog = append(g.backlog, DialogueEntry{
-						Speaker: g.pages[g.index].Dialogue.Speaker,
-						Text:    g.pages[g.index].Clean,
-					})
-				}
-			}
-			g.choosing = false
-		}
-		return nil
+	choices := g.pages[g.index].Choices
+	if len(choices) == 0 {
+		g.choosing = false
+		return true
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+		g.prevPage()
+		g.choosing = false
+		return true
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+		if g.choiceIndex > 0 {
+			g.choiceIndex--
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+		if g.choiceIndex < len(choices)-1 {
+			g.choiceIndex++
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		dest := choices[g.choiceIndex].Page
+		if dest >= 0 && dest < len(g.pages) {
+			g.index = dest
+			g.playAudio(g.pages[g.index].Audio)
+			if g.pages[g.index].Dialogue != nil {
+				g.backlog = append(g.backlog, DialogueEntry{
+					Speaker: g.pages[g.index].Dialogue.Speaker,
+					Text:    g.pages[g.index].Clean,
+				})
+			}
+		}
+		g.choosing = false
+	}
+	return true
+}
 
+func (g *Game) handlePageInput() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) || inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 		g.prevPage()
 	}
@@ -192,10 +198,23 @@ func (g *Game) Update() error {
 		if len(g.pages[g.index].Choices) > 0 {
 			g.choosing = true
 			g.choiceIndex = 0
-			return nil
+			return
 		}
 		g.nextPage()
 	}
+}
+
+// Update advances the game state according to user input.
+func (g *Game) Update() error {
+	if g.updateBacklog() {
+		return nil
+	}
+
+	if g.updateChoiceSelection() {
+		return nil
+	}
+
+	g.handlePageInput()
 	return nil
 }
 
