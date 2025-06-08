@@ -53,3 +53,28 @@ func TestLoadScriptsChoices(t *testing.T) {
 		t.Fatalf("unexpected choice parsed: %+v", c)
 	}
 }
+
+func TestLoadScriptsTransitions(t *testing.T) {
+	tmp, err := os.CreateTemp("", "script*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmp.Name())
+	data := `[{"stage":{"bg":"b.png","bgFade":10,"spriteFade":5}}]`
+	if _, err := tmp.WriteString(data); err != nil {
+		t.Fatal(err)
+	}
+	tmp.Close()
+
+	pages, err := LoadScripts(tmp.Name())
+	if err != nil {
+		t.Fatalf("LoadScripts error: %v", err)
+	}
+	if len(pages) != 1 {
+		t.Fatalf("expected 1 page, got %d", len(pages))
+	}
+	st := pages[0].Stage
+	if st == nil || st.BGFade != 10 || st.SpriteFade != 5 {
+		t.Fatalf("transitions not parsed: %+v", st)
+	}
+}

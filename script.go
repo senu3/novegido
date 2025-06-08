@@ -14,8 +14,10 @@ type SpriteInfo struct {
 }
 
 type StageInfo struct {
-	BG      string       `json:"bg"`
-	Sprites []SpriteInfo `json:"sprites"`
+	BG         string       `json:"bg"`
+	Sprites    []SpriteInfo `json:"sprites"`
+	BGFade     int          `json:"bgFade,omitempty"`
+	SpriteFade int          `json:"spriteFade,omitempty"`
 }
 
 type DialogueInfo struct {
