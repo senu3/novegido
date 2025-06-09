@@ -6,29 +6,10 @@ package ui
 import (
 	"image"
 	"image/color"
-	"log"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
-
-// Face is the default font face used for UI text.
-var Face text.Face
-
-func init() {
-	f, err := os.Open("assets/fonts/DotGothic16-Regular.ttf")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	src, err := text.NewGoTextFaceSource(f)
-	if err != nil {
-		log.Fatal(err)
-	}
-	Face = &text.GoTextFace{Source: src, Size: 22}
-}
 
 // DialogueBox represents the main dialogue area.
 type DialogueBox struct {
@@ -38,7 +19,7 @@ type DialogueBox struct {
 }
 
 // Draw renders the dialogue box along with speaker name and text.
-func (d DialogueBox) Draw(screen *ebiten.Image, name, txt string) {
+func (d DialogueBox) Draw(screen *ebiten.Image, face text.Face, name, txt string) {
 	if d.Frame != nil {
 		d.Frame.Draw(screen, d.Rect)
 	} else {
@@ -72,7 +53,7 @@ func (d DialogueBox) Draw(screen *ebiten.Image, name, txt string) {
 		ntOp := &text.DrawOptions{}
 		ntOp.GeoM.Translate(float64(nameRect.Min.X+10), float64(nameRect.Max.Y-6))
 		ntOp.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, name, Face, ntOp)
+		text.Draw(screen, name, face, ntOp)
 
 		y += float64(nameRect.Dy() + 10)
 	}
@@ -80,5 +61,5 @@ func (d DialogueBox) Draw(screen *ebiten.Image, name, txt string) {
 	tOp := &text.DrawOptions{}
 	tOp.GeoM.Translate(float64(d.Rect.Min.X+20), y)
 	tOp.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, txt, Face, tOp)
+	text.Draw(screen, txt, face, tOp)
 }
