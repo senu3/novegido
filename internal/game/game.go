@@ -19,7 +19,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 
 	"novegido/internal/script"
-	"novegido/internal/ui"
+	uipkg "novegido/internal/ui"
 )
 
 // DialogueEntry represents a line shown in the backlog.
@@ -40,7 +40,8 @@ type Game struct {
 	pages         []*script.Page
 	index         int
 	stage         *StageRenderer
-	dialogueBox   ui.DialogueBox
+	dialogueBox   uipkg.DialogueBox
+	ui            *uipkg.UI
 	audioCtx      *audio.Context
 	players       map[string]*audio.Player
 	sources       map[string]io.Closer
@@ -66,19 +67,20 @@ func (g *Game) addToBacklog(d *script.DialogueInfo) {
 }
 
 // NewGame creates a Game instance with the provided pages and screen size.
-func NewGame(pages []*script.Page, w, h int) *Game {
-	frame, err := ui.LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
+func NewGame(ui *uipkg.UI, pages []*script.Page, w, h int) *Game {
+	frame, err := uipkg.LoadNineSlice(filepath.Join("assets", "ui", "9slice30.png"), 30)
 	if err != nil {
 		log.Printf("nine-slice load error: %v", err)
 	}
 	g := &Game{
 		pages: pages,
 		stage: NewStageRenderer(w, h),
-		dialogueBox: ui.DialogueBox{
+		dialogueBox: uipkg.DialogueBox{
 			Rect:      image.Rect(0, h*2/3, w, h),
 			Frame:     frame,
 			NameFrame: frame,
 		},
+		ui:          ui,
 		audioCtx:    audio.NewContext(48000),
 		players:     map[string]*audio.Player{},
 		sources:     map[string]io.Closer{},
@@ -224,7 +226,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.pages[g.index].Dialogue != nil {
 		dlg := g.pages[g.index].Dialogue
-		g.dialogueBox.Draw(screen, dlg.Speaker, g.pages[g.index].Clean)
+		g.dialogueBox.Draw(screen, g.ui.Face, dlg.Speaker, g.pages[g.index].Clean)
 	}
 
 	if g.choosing {
@@ -245,7 +247,7 @@ func (g *Game) drawBacklog(screen *ebiten.Image) {
 		tOp := &text.DrawOptions{}
 		tOp.GeoM.Translate(20, y)
 		tOp.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), ui.Face, tOp)
+		text.Draw(screen, fmt.Sprintf("%s: %s", e.Speaker, e.Text), g.ui.Face, tOp)
 		y += 24
 	}
 }
@@ -264,7 +266,7 @@ func (g *Game) drawChoices(screen *ebiten.Image) {
 			col = color.RGBA{255, 255, 0, 255}
 		}
 		tOp.ColorScale.ScaleWithColor(col)
-		text.Draw(screen, fmt.Sprintf("%d. %s", i+1, c.Text), ui.Face, tOp)
+		text.Draw(screen, fmt.Sprintf("%d. %s", i+1, c.Text), g.ui.Face, tOp)
 	}
 }
 

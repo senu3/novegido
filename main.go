@@ -11,6 +11,7 @@ import (
 
 	"novegido/internal/game"
 	"novegido/internal/script"
+	"novegido/internal/ui"
 )
 
 var (
@@ -26,7 +27,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	g := game.NewGame(pages, *screenWidth, *screenHeight)
+	uiObj, err := ui.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	g := game.NewGame(uiObj, pages, *screenWidth, *screenHeight)
 	ebiten.SetWindowSize(*screenWidth, *screenHeight)
 	ebiten.SetWindowTitle("Novel Game Demo")
 	if err := ebiten.RunGame(g); err != nil {
